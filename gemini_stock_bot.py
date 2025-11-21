@@ -27,39 +27,41 @@ class SmartTrader:
 
     def get_model(self):
         """
-        Automatically finds a working model to avoid 404 errors.
+        Automatically finds a working, FREE model to avoid 404 and 429 errors.
         """
         try:
             # Ask Google what models are available for this Key
             available_models = [m.name for m in genai.list_models()]
             print(f"DEBUG: Available models: {available_models}")
             
-            # Priority list of models to try (Best to Worst)
-            # 'gemini-flash' is often the alias for the current stable flash model
+            # Priority list: NEWEST STABLE FLASH models first.
+            # We removed '2.0-flash' because it causes Quota (429) errors.
             candidates = [
-                'models/gemini-1.5-flash',
-                'models/gemini-1.5-flash-latest',
-                'models/gemini-flash',        # Likely the stable alias you have
-                'models/gemini-2.0-flash',    # You have this, but it might quota limit
-                'models/gemini-pro'
+                'models/gemini-2.5-flash',       # Best new model
+                'models/gemini-flash-latest',    # Generic stable alias
+                'models/gemini-1.5-flash',       # Old reliable
+                'models/gemini-1.5-flash-latest'
             ]
 
             for candidate in candidates:
                 if candidate in available_models:
                     print(f"-> Selected Model: {candidate}")
-                    # The API expects the name without 'models/' prefix sometimes, 
-                    # but the client handles both. Let's strip it to be safe.
                     model_name = candidate.replace('models/', '')
                     return genai.GenerativeModel(model_name)
             
-            # If nothing matches, try a fallback that appeared in your logs
-            print("-> Warning: No standard model found. Forcing 'gemini-flash'")
-            return genai.GenerativeModel('gemini-flash')
+            # Fallback: If exact matches fail, look for ANY 'flash' model that isn't '2.0'
+            # This is a safety net for regional weirdness
+            for m in available_models:
+                if 'flash' in m and '2.0' not in m and 'exp' not in m:
+                    print(f"-> Fallback Selected: {m}")
+                    return genai.GenerativeModel(m.replace('models/', ''))
+
+            print("-> Warning: No standard Flash model found. Forcing 'gemini-2.5-flash'")
+            return genai.GenerativeModel('gemini-2.5-flash')
 
         except Exception as e:
             print(f"Model Selection Error: {e}")
-            # Absolute fallback
-            return genai.GenerativeModel('gemini-flash')
+            return genai.GenerativeModel('gemini-2.5-flash')
 
     def get_stable_news(self):
         if not NEWS_API_KEY:
