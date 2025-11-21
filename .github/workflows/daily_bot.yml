@@ -1,0 +1,34 @@
+name: Daily Stock Check
+
+on:
+  schedule:
+    # Runs at 12:00 UTC every day.
+    # You can google "Cron converter" to find your time.
+    - cron: '0 12 * * *'
+  workflow_dispatch: # Allows you to click a button to run it now
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance requests google-generativeai
+
+      - name: Run Bot
+        env:
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python gemini_stock_bot.py
