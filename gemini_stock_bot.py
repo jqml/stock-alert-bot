@@ -31,7 +31,7 @@ class SmartTrader:
         The 'Scanner' Strategy:
         1. Fetches ALL models available to your API key.
         2. Filters for models that support 'generateContent'.
-        3. Prioritizes 'flash' and 'lite' models (most likely to be free).
+        3. Prioritizes models known to have available quota (Gemma, Flash Lite).
         4. Tries them one by one until successful.
         """
         try:
@@ -48,42 +48,32 @@ class SmartTrader:
                 model_name = m.name.replace('models/', '')
                 text_models.append(model_name)
 
-        print(f"DEBUG: Found {len(text_models)} text-generation models.")
-
-        # Sort the list to try the "Likely Free" ones first
-        # We prioritize: 'flash', then 'lite', then 'pro', then everything else
+        # OPTIMIZED SORTING: Try Gemma and Lite models first to save time
         def sort_priority(name):
-            if 'flash' in name and '2.0' not in name: return 0  # Best (1.5 Flash)
-            if 'lite' in name: return 1                         # Good (Flash Lite)
-            if 'flash' in name: return 2                        # Okay (2.0 Flash)
-            if 'pro' in name: return 3                          # Heavy (Pro)
-            return 4                                            # Others
+            if 'gemma' in name: return 0            # Best (Likely to work)
+            if 'lite' in name: return 1             # Good (Low cost/quota)
+            if 'flash' in name and '2.0' not in name: return 2  # Standard Flash
+            if 'flash' in name: return 3            # Newer Flash (often busy)
+            return 4                                # Heavy Pro models (last resort)
 
         text_models.sort(key=sort_priority)
 
         # The Loop of Hope
         for model_name in text_models:
-            print(f"--- Attempting: {model_name} ---")
+            # Only print the first attempt to keep logs clean, unless it fails
+            if text_models.index(model_name) == 0:
+                print(f"--- Attempting primary model: {model_name} ---")
+            
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
-                
-                # If we get here, IT WORKED!
                 print(f"SUCCESS: Connected to {model_name}!")
                 return response.text.strip()
                 
             except Exception as e:
-                error_str = str(e)
-                if "429" in error_str:
-                    print(f"-> Quota Exceeded (429). Skipping...")
-                elif "404" in error_str:
-                    print(f"-> Model Not Found (404). Skipping...")
-                else:
-                    print(f"-> Error: {error_str}. Skipping...")
+                # Silent fail and continue unless it's the last one
+                pass
                 
-                # Small pause to be polite to the API
-                time.sleep(0.5)
-
         return "ERROR: Tried all available models and none worked. Please check billing/quota."
 
     def get_stable_news(self):
@@ -94,14 +84,14 @@ class SmartTrader:
         try:
             response = requests.get(url)
             data = response.json()
-            articles = data.get('articles', [])[:5]
+            articles = data.get('articles', [])[:3] # Limit to 3 articles per stock to save tokens
             return [f"{a['title']} - {a['description']}" for a in articles]
         except Exception as e:
             print(f"News API Error: {e}")
             return []
 
     def run_analysis(self):
-        print(f"--- Running Analysis for {self.ticker} ---")
+        print(f"\n=== Analyzing {self.ticker} ===")
         
         # 1. Get Price
         price = "Unavailable"
@@ -116,7 +106,7 @@ class SmartTrader:
         # 2. Get News
         news = self.get_stable_news()
         if not news:
-            print("No news found. Stopping.")
+            print("No news found. Skipping.")
             return
 
         news_text = "\n".join(news)
@@ -159,5 +149,13 @@ class SmartTrader:
             print(f"-> Failed to send email: {e}")
 
 if __name__ == "__main__":
-    bot = SmartTrader("TSLA")
-    bot.run_analysis()
+    # --- EDIT THIS LIST TO CHECK YOUR STOCKS ---
+    my_portfolio = ["GOOGL", "IBKR", "TSLA", "NVDA", "UNH"]
+    
+    print(f"Starting Daily Scan for: {my_portfolio}")
+    
+    for ticker in my_portfolio:
+        bot = SmartTrader(ticker)
+        bot.run_analysis()
+        # Wait 5 seconds between stocks so we don't hit rate limits
+        time.sleep(5)
