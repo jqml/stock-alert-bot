@@ -16,7 +16,6 @@ EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 # Configure Gemini
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
 
 class SmartTrader:
     def __init__(self, ticker):
@@ -25,6 +24,32 @@ class SmartTrader:
             self.company_name = yf.Ticker(ticker).info.get('shortName', ticker)
         except:
             self.company_name = ticker
+
+    def get_model(self):
+        """
+        Automatically finds a working model to avoid 404 errors.
+        """
+        try:
+            # Ask Google what models are available for this Key
+            available = [m.name for m in genai.list_models()]
+            print(f"DEBUG: Available models: {available}")
+            
+            # Try to find the best free one
+            if 'models/gemini-1.5-flash' in available:
+                print("Using: gemini-1.5-flash")
+                return genai.GenerativeModel('gemini-1.5-flash')
+            elif 'models/gemini-1.5-flash-latest' in available:
+                print("Using: gemini-1.5-flash-latest")
+                return genai.GenerativeModel('gemini-1.5-flash-latest')
+            elif 'models/gemini-pro' in available:
+                print("Using: gemini-pro")
+                return genai.GenerativeModel('gemini-pro')
+            else:
+                print("Warning: Could not find standard model. Trying default 'gemini-1.5-flash'.")
+                return genai.GenerativeModel('gemini-1.5-flash')
+        except Exception as e:
+            print(f"Model Error: {e}")
+            return genai.GenerativeModel('gemini-1.5-flash')
 
     def get_stable_news(self):
         if not NEWS_API_KEY:
@@ -59,6 +84,7 @@ class SmartTrader:
         Then, add a dash and a 1-sentence reason.
         """
         try:
+            model = self.get_model()
             response = model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
@@ -101,6 +127,5 @@ class SmartTrader:
             print("No strong signal.")
 
 if __name__ == "__main__":
-    # CHANGE "TSLA" TO YOUR FAVORITE STOCK HERE IF YOU WANT
     bot = SmartTrader("TSLA")
     bot.run_analysis()
