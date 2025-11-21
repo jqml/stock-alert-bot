@@ -111,15 +111,19 @@ class SmartTrader:
 
         news_text = "\n".join(news)
         
-        # 3. Ask Gemini
+        # 3. Ask Gemini (Updated Prompt for Explanation)
         prompt = f"""
         You are a senior Wall Street stock analyst. 
         I am looking at stock: {self.ticker} (Price: {price}).
+        
         Here is the latest news:
         {news_text}
+        
         Based STRICTLY on this news, determine the sentiment.
-        Reply with ONLY one of these words: BUY, SELL, or HOLD.
-        Then, add a dash and a 1-sentence reason.
+        
+        Your response must follow this exact format:
+        ACTION: [BUY, SELL, or HOLD]
+        REASON: [Provide a clear, 2-3 sentence explanation of why based on the news provided. Mention specific positive or negative events.]
         """
         
         advice = self.get_working_model_and_response(prompt)
