@@ -202,7 +202,7 @@ class EnhancedDayTrader:
         news = self.get_stable_news()
         news_text = "\n".join(news) if news else "No recent news found."
         
-        # 3. Create SIMPLE, DIRECT analysis prompt
+        # 3. Create SIMPLE, DIRECT analysis prompt with better reasoning
         prompt = f"""
 You are a day trader. Analyze {self.ticker} for a trade TODAY (4-hour max hold).
 
@@ -222,7 +222,7 @@ NEWS:
 
 YOUR JOB: Tell me if the CURRENT PRICE ${price:.2f} is a good entry or not.
 
-Respond in this EXACT format (keep it SHORT):
+Respond in this EXACT format:
 
 PRICE STATUS: [TOO HIGH / FAIR / GOOD DEAL / GREAT DEAL]
 ACTION: [BUY NOW / WAIT FOR PULLBACK / SELL / DO NOTHING]
@@ -231,14 +231,18 @@ If action is BUY or SELL, provide:
 ENTRY: $[price]
 STOP: $[price]  
 TARGET: $[price]
-REASON: [One sentence only]
+REASON: [2-3 sentences. First sentence: explain the NEWS impact and fundamental catalyst. Second sentence: explain the TECHNICAL setup. Be specific about what the news means for revenue/growth/risk.]
 
 If action is WAIT or DO NOTHING, provide:
 BUY ZONE: $[price]-$[price] (wait for this dip)
 SELL ZONE: $[price]+ (take profit here)
-REASON: [One sentence only]
+REASON: [2-3 sentences. Explain WHY the current price is not ideal based on news + technicals. What are you waiting for? What would make it a better entry?]
 
-Be direct. No fluff.
+IMPORTANT: Your REASON must connect the news to potential stock movement. Examples:
+- Good: "The MIAXdx acquisition adds a high-margin prediction market business that analysts estimate could generate $300M+ annual revenue, directly boosting earnings. Technically, the stock broke above all EMAs with strong volume, confirming institutional buying."
+- Bad: "Pullback to support after bullish news."
+
+Be direct but informative.
 """
         
         advice = self.get_working_model_and_response(prompt)
