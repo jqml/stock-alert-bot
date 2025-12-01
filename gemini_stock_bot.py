@@ -154,7 +154,7 @@ class SmartTrader:
 
 if __name__ == "__main__":
     # --- EDIT THIS LIST TO CHECK YOUR STOCKS ---
-    my_portfolio = ["GOOGL", "IBKR", "TSLA", "NVDA", "UNH"]
+    my_portfolio = ["GOOGL", "HOOD", "TSLA", "NVDA", "UNH"]
     
     print(f"Starting Daily Scan for: {my_portfolio}")
     
