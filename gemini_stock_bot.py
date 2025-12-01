@@ -202,99 +202,94 @@ class EnhancedDayTrader:
         news = self.get_stable_news()
         news_text = "\n".join(news) if news else "No recent news found."
         
-        # 3. Create comprehensive analysis prompt
+        # 3. Create SIMPLE, DIRECT analysis prompt
         prompt = f"""
-You are an elite day trader with 20 years of experience. Analyze this stock for a 4-hour maximum hold time.
+You are a day trader. Analyze {self.ticker} for a trade TODAY (4-hour max hold).
 
-STOCK: {self.ticker}
 CURRENT PRICE: ${price:.2f}
+Price Change Today: {tech_data['price_change_pct']:+.2f}%
 
-=== TECHNICAL INDICATORS ===
-Price Change: {tech_data['price_change_pct']:+.2f}%
-EMA Alignment: {tech_data['ema_alignment']}
-- EMA 22: ${tech_data['ema_22']:.2f}
-- EMA 200: ${tech_data['ema_200']:.2f}
-- Distance from 200 EMA: {tech_data['distance_from_ema_200']:+.2f}%
+TECHNICAL DATA:
+- EMA Trend: {tech_data['ema_alignment']}
+- RSI: {tech_data['rsi']:.1f} ({tech_data['rsi_signal']})
+- MACD: {tech_data['macd_crossover']}
+- Support: ${tech_data['support']:.2f}
+- Resistance: ${tech_data['resistance']:.2f}
+- Pattern: {tech_data['candle_pattern']}
 
-RSI: {tech_data['rsi']:.1f} ({tech_data['rsi_signal']})
-
-MACD: {tech_data['macd']:.3f}
-MACD Signal: {tech_data['macd_signal']:.3f}
-MACD Crossover: {tech_data['macd_crossover']}
-
-Candlestick Pattern: {tech_data['candle_pattern']}
-Support Level: ${tech_data['support']:.2f}
-Resistance Level: ${tech_data['resistance']:.2f}
-
-Volume: {tech_data['volume']:,.0f} (Avg: {tech_data['avg_volume']:,.0f})
-
-=== LATEST NEWS ===
+NEWS:
 {news_text}
 
-=== YOUR TASK ===
-Based on BOTH technical indicators AND news sentiment, provide a day trading setup.
+YOUR JOB: Tell me if the CURRENT PRICE ${price:.2f} is a good entry or not.
 
-Your response MUST follow this EXACT format:
+Respond in this EXACT format (keep it SHORT):
 
-DIRECTION: [LONG/SHORT/WAIT]
-CONFIDENCE: [HIGH/MEDIUM/LOW]
-ENTRY: $[specific price]
-STOP LOSS: $[specific price]
-TAKE PROFIT: $[specific price]
-HOLD TIME: [estimate in hours]
+PRICE STATUS: [TOO HIGH / FAIR / GOOD DEAL / GREAT DEAL]
+ACTION: [BUY NOW / WAIT FOR PULLBACK / SELL / DO NOTHING]
 
-TECHNICAL REASONING: [2-3 sentences explaining the technical setup]
-NEWS IMPACT: [1-2 sentences on how news affects the trade]
-KEY RISK: [1 sentence on the main risk factor]
+If action is BUY or SELL, provide:
+ENTRY: $[price]
+STOP: $[price]  
+TARGET: $[price]
+REASON: [One sentence only]
 
-Be direct. No disclaimers. Assume I understand the risks.
+If action is WAIT or DO NOTHING, provide:
+BUY ZONE: $[price]-$[price] (wait for this dip)
+SELL ZONE: $[price]+ (take profit here)
+REASON: [One sentence only]
+
+Be direct. No fluff.
 """
         
         advice = self.get_working_model_and_response(prompt)
         
         print(f"\n{'='*60}")
-        print("🤖 AI TRADING ADVICE")
+        print("🤖 AI SIGNAL")
         print(f"{'='*60}")
         print(advice)
         print(f"{'='*60}\n")
 
-        # 4. Send Email if strong signal
-        if "DIRECTION: LONG" in advice or "DIRECTION: SHORT" in advice:
-            if "CONFIDENCE: HIGH" in advice or "CONFIDENCE: MEDIUM" in advice:
-                self.send_notification(advice, tech_data)
-            else:
-                print("⚠️  Low confidence signal. No email sent.")
+        # 4. Send Email ONLY if there's a clear BUY or SELL signal
+        # Check if the advice contains actionable signals
+        is_buy_signal = "ACTION: BUY NOW" in advice or "ENTRY: $" in advice
+        is_sell_signal = "ACTION: SELL" in advice
+        
+        if is_buy_signal or is_sell_signal:
+            print("✅ Actionable signal detected. Sending email...")
+            self.send_notification(advice, tech_data)
         else:
-            print("⏸️  WAIT signal. No email sent.")
+            print("⏸️  No immediate action needed. Email skipped.")
 
     def send_notification(self, advice, tech_data):
-        """Send email with enhanced formatting"""
+        """Send SHORT, DIRECT email with trading signal"""
         if not EMAIL_SENDER or not EMAIL_PASSWORD:
             print("-> Email credentials missing. Skipping email.")
             return
         
+        # Determine if it's a buy or sell to customize the emoji
+        action_emoji = "🟢 BUY" if "BUY" in advice else "🔴 SELL"
+        
         email_body = f"""
-🚨 TRADE ALERT: {self.ticker} 🚨
+{action_emoji} SIGNAL: {self.ticker}
 
-Current Price: ${tech_data['current_price']:.2f}
-Change: {tech_data['price_change_pct']:+.2f}%
+Current Price: ${tech_data['current_price']:.2f} ({tech_data['price_change_pct']:+.2f}%)
 
 {advice}
 
 ---
-Technical Summary:
-• EMA Trend: {tech_data['ema_alignment']}
-• RSI: {tech_data['rsi']:.1f} ({tech_data['rsi_signal']})
-• MACD: {tech_data['macd_crossover']}
-• Pattern: {tech_data['candle_pattern']}
+Quick Context:
+• Trend: {tech_data['ema_alignment']}
+• RSI: {tech_data['rsi']:.1f}
+• Support: ${tech_data['support']:.2f} | Resistance: ${tech_data['resistance']:.2f}
 
----
-Generated at: {time.strftime('%Y-%m-%d %H:%M:%S UTC')}
-⚠️ This is automated analysis. Always do your own research.
+⏰ {time.strftime('%Y-%m-%d %H:%M UTC')}
         """
         
+        # Subject line shows the action clearly
+        subject = f"{action_emoji}: {self.ticker} @ ${tech_data['current_price']:.2f}"
+        
         msg = MIMEText(email_body)
-        msg['Subject'] = f"🔥 Trade Setup: {self.ticker}"
+        msg['Subject'] = subject
         msg['From'] = EMAIL_SENDER
         msg['To'] = EMAIL_RECEIVER
 
@@ -302,13 +297,13 @@ Generated at: {time.strftime('%Y-%m-%d %H:%M:%S UTC')}
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
                 server.login(EMAIL_SENDER, EMAIL_PASSWORD)
                 server.send_message(msg)
-            print("✅ Email notification sent!")
+            print("✅ Email sent!")
         except Exception as e:
-            print(f"❌ Failed to send email: {e}")
+            print(f"❌ Email failed: {e}")
 
 if __name__ == "__main__":
     # --- YOUR WATCHLIST ---
-    my_portfolio = ["HOOD", "TSLA", "NVDA", "GOOGL", "UNH"]
+    my_portfolio = ["HOOD", "TSLA", "NVDA", "GOOGL", "AAPL"]
     
     print(f"\n🚀 Starting Enhanced Day Trading Analysis")
     print(f"📋 Watchlist: {', '.join(my_portfolio)}")
