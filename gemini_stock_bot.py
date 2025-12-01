@@ -307,7 +307,7 @@ Quick Context:
 
 if __name__ == "__main__":
     # --- YOUR WATCHLIST ---
-    my_portfolio = ["HOOD", "TSLA", "NVDA", "GOOGL", "AAPL"]
+    my_portfolio = ["HOOD", "TSLA", "NVDA", "GOOGL", "UNH"]
     
     print(f"\n🚀 Starting Enhanced Day Trading Analysis")
     print(f"📋 Watchlist: {', '.join(my_portfolio)}")
